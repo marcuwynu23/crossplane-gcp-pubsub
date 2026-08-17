@@ -1,0 +1,15 @@
+---
+apiVersion: gcp.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: gcp-provider-config
+spec:
+  # Replace PROJECT_ID with your GCP project ID.
+  # The CI/CD workflow substitutes this value automatically.
+  projectID: PROJECT_ID
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: gcp-creds
+      key: creds

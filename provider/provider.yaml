@@ -1,0 +1,8 @@
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: upbound-provider-gcp-pubsub
+spec:
+  package: xpkg.upbound.io/upbound/provider-gcp-pubsub:v3.0.1
+  packagePullPolicy: IfNotPresent
