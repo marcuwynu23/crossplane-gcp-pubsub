@@ -1,0 +1,23 @@
+---
+# Example claim. Replace the placeholder values (or use the CI/CD workflow
+# which substitutes them automatically).
+apiVersion: pubsub.gcp.example.org/v1alpha1
+kind: PubSubTopicClaim
+metadata:
+  name: CLAIM_NAME
+  namespace: CLAIM_NAMESPACE
+spec:
+  projectId: PROJECT_ID
+  region: REGION
+  topicName: my-topic
+  subscriptionName: my-subscription
+  messageRetentionDuration: "86600s"
+  labels:
+    environment: dev
+  ackDeadlineSeconds: 20
+  pushEndpoint: ""
+  pushAttributes: {}
+  expirationTtl: "86400s"
+  minRetryBackoff: "10s"
+  maxRetryBackoff: "600s"
+  enableMessageOrdering: false

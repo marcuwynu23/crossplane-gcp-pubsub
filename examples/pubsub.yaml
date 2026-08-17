@@ -1,0 +1,40 @@
+---
+# Direct managed resource example (no Composition required).
+#
+# Replace PROJECT_ID with your GCP project ID and give the topic and
+# subscription unique names.
+apiVersion: pubsub.gcp.upbound.io/v1beta1
+kind: Topic
+metadata:
+  name: my-topic
+spec:
+  forProvider:
+    project: PROJECT_ID
+    name: my-topic
+    messageRetentionDuration: "86600s"
+    labels:
+      environment: dev
+  providerConfigRef:
+    name: gcp-provider-config
+---
+apiVersion: pubsub.gcp.upbound.io/v1beta1
+kind: Subscription
+metadata:
+  name: my-subscription
+spec:
+  forProvider:
+    project: PROJECT_ID
+    name: my-subscription
+    topic: projects/PROJECT_ID/topics/my-topic
+    ackDeadlineSeconds: 20
+    pushConfig:
+      pushEndpoint: ""
+      attributes: {}
+    expirationPolicy:
+      ttl: "86400s"
+    retryPolicy:
+      minimumBackoff: "10s"
+      maximumBackoff: "600s"
+    enableMessageOrdering: false
+  providerConfigRef:
+    name: gcp-provider-config
