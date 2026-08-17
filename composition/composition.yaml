@@ -1,0 +1,140 @@
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: pubsubtopics.pubsub.gcp.example.org
+  labels:
+    provider: gcp
+    service: pubsub
+spec:
+  compositeTypeRef:
+    apiVersion: pubsub.gcp.example.org/v1alpha1
+    kind: PubSubTopic
+  resources:
+    - name: topic
+      base:
+        apiVersion: pubsub.gcp.upbound.io/v1beta1
+        kind: Topic
+        spec:
+          forProvider:
+            messageRetentionDuration: "86600s"
+            labels:
+              environment: dev
+          providerConfigRef:
+            name: gcp-provider-config
+      patches:
+        # Derive the managed resource name from the claim namespace and claim
+        # name (e.g. "default-my-pubsub-topic") so that deleting and re-creating
+        # the claim re-adopts the same resources.
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.labels[crossplane.io/claim-namespace]
+              - fromFieldPath: metadata.labels[crossplane.io/claim-name]
+            strategy: string
+            string:
+              fmt: "%s-%s-topic"
+          toFieldPath: metadata.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.projectId
+          toFieldPath: spec.forProvider.project
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.topicName
+          toFieldPath: spec.forProvider.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.messageRetentionDuration
+          toFieldPath: spec.forProvider.messageRetentionDuration
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.labels
+          toFieldPath: spec.forProvider.labels
+        # Publish outputs back to the composite resource status so that
+        # consumers can read the topic ID and name.
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.topicId
+        - type: ToCompositeFieldPath
+          fromFieldPath: spec.forProvider.name
+          toFieldPath: status.topicName
+      readinessChecks:
+        - type: MatchString
+          fieldPath: status.atProvider.id
+          matchString: ".*"
+    - name: subscription
+      base:
+        apiVersion: pubsub.gcp.upbound.io/v1beta1
+        kind: Subscription
+        spec:
+          forProvider:
+            ackDeadlineSeconds: 20
+            pushConfig:
+              pushEndpoint: ""
+              attributes: {}
+            expirationPolicy:
+              ttl: "86400s"
+            retryPolicy:
+              minimumBackoff: "10s"
+              maximumBackoff: "600s"
+            enableMessageOrdering: false
+          providerConfigRef:
+            name: gcp-provider-config
+      patches:
+        # Derive a unique managed resource name from the claim namespace and
+        # claim name (e.g. "default-my-pubsub-subscription").
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.labels[crossplane.io/claim-namespace]
+              - fromFieldPath: metadata.labels[crossplane.io/claim-name]
+            strategy: string
+            string:
+              fmt: "%s-%s-subscription"
+          toFieldPath: metadata.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.projectId
+          toFieldPath: spec.forProvider.project
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.subscriptionName
+          toFieldPath: spec.forProvider.name
+        # The subscription must reference the topic by its full resource name.
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.projectId
+              - fromFieldPath: spec.topicName
+            strategy: string
+            string:
+              fmt: "projects/%s/topics/%s"
+          toFieldPath: spec.forProvider.topic
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.ackDeadlineSeconds
+          toFieldPath: spec.forProvider.ackDeadlineSeconds
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.pushEndpoint
+          toFieldPath: spec.forProvider.pushConfig.pushEndpoint
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.pushAttributes
+          toFieldPath: spec.forProvider.pushConfig.attributes
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.expirationTtl
+          toFieldPath: spec.forProvider.expirationPolicy.ttl
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.minRetryBackoff
+          toFieldPath: spec.forProvider.retryPolicy.minimumBackoff
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.maxRetryBackoff
+          toFieldPath: spec.forProvider.retryPolicy.maximumBackoff
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.enableMessageOrdering
+          toFieldPath: spec.forProvider.enableMessageOrdering
+        # Publish outputs back to the composite resource status so that
+        # consumers can read the subscription ID and name.
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.id
+          toFieldPath: status.subscriptionId
+        - type: ToCompositeFieldPath
+          fromFieldPath: spec.forProvider.name
+          toFieldPath: status.subscriptionName
+      readinessChecks:
+        - type: MatchString
+          fieldPath: status.atProvider.id
+          matchString: ".*"

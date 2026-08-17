@@ -1,0 +1,102 @@
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: pubsubtopics.pubsub.gcp.example.org
+spec:
+  group: pubsub.gcp.example.org
+  names:
+    kind: PubSubTopic
+    plural: pubsubtopics
+  claimNames:
+    kind: PubSubTopicClaim
+    plural: pubsubtopicclaims
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                projectId:
+                  type: string
+                  description: The ID of the project in which to provision resources.
+                region:
+                  type: string
+                  description: >-
+                    The region in which to provision resources. To stay within
+                    GCP Free Tier, use: us-west1, us-central1, or us-east1.
+                  default: us-central1
+                  enum:
+                    - us-west1
+                    - us-central1
+                    - us-east1
+                topicName:
+                  type: string
+                  description: The name of the Pub/Sub topic to create.
+                  default: my-topic
+                messageRetentionDuration:
+                  type: string
+                  description: How long unacknowledged messages are retained in the topic.
+                  default: "86600s"
+                labels:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Labels to apply to the Pub/Sub topic.
+                  default:
+                    environment: dev
+                subscriptionName:
+                  type: string
+                  description: The name of the Pub/Sub subscription to create.
+                  default: my-subscription
+                ackDeadlineSeconds:
+                  type: integer
+                  description: The acknowledgement deadline in seconds.
+                  default: 20
+                pushEndpoint:
+                  type: string
+                  description: Push endpoint URL. Leave empty for a pull subscription.
+                  default: ""
+                pushAttributes:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Attributes for the push configuration.
+                expirationTtl:
+                  type: string
+                  description: TTL for the subscription expiration policy.
+                  default: "86400s"
+                minRetryBackoff:
+                  type: string
+                  description: Minimum retry backoff duration.
+                  default: "10s"
+                maxRetryBackoff:
+                  type: string
+                  description: Maximum retry backoff duration.
+                  default: "600s"
+                enableMessageOrdering:
+                  type: boolean
+                  description: Enables message ordering on the subscription.
+                  default: false
+              required:
+                - projectId
+            status:
+              type: object
+              properties:
+                topicId:
+                  type: string
+                  description: The ID of the created Pub/Sub topic.
+                topicName:
+                  type: string
+                  description: The name of the created Pub/Sub topic.
+                subscriptionId:
+                  type: string
+                  description: The ID of the created Pub/Sub subscription.
+                subscriptionName:
+                  type: string
+                  description: The name of the created Pub/Sub subscription.
