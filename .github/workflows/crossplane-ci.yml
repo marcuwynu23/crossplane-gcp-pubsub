@@ -1,0 +1,37 @@
+---
+name: CI - Crossplane Pub/Sub Manifests Validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate Crossplane Manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ryl
+        run: pip install ryl
+
+      - name: Lint all YAML manifests with ryl
+        run: ryl check --strict .
+
+      - name: Check required files exist
+        run: |
+          set -e
+          test -f provider/provider.yaml
+          test -f provider/provider-config.yaml
+          test -f composition/xrd.yaml
+          test -f composition/composition.yaml
+          echo "All required manifests present"
