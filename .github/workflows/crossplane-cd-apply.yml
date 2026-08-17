@@ -1,0 +1,97 @@
+---
+name: CD - GCP Pub/Sub (Apply)
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      project_id:
+        description: GCP project ID
+        required: true
+        type: string
+
+      region:
+        description: "GCP region (Free Tier: us-west1, us-central1, us-east1)"
+        required: true
+        type: string
+        default: us-central1
+
+      claim_name:
+        description: "Claim name. Creates a Pub/Sub topic and subscription"
+        required: true
+        type: string
+
+      claim_namespace:
+        description: Namespace for the claim
+        required: true
+        type: string
+        default: default
+
+jobs:
+  apply:
+    name: Crossplane Apply
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 --decode > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Install Crossplane Provider
+        run: kubectl apply -f provider/provider.yaml
+
+      - name: Wait for Provider
+        run: |
+          kubectl wait --for=condition=Healthy \
+            provider/upbound-provider-gcp-pubsub --timeout=300s
+
+      - name: Create GCP credentials secret
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          kubectl create secret generic gcp-creds \
+            --namespace crossplane-system \
+            --from-file=creds=<(printf '%s' "$GCP_SA_KEY") \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply ProviderConfig
+        run: |
+          sed -e "s/PROJECT_ID/${{ github.event.inputs.project_id }}/g" \
+            provider/provider-config.yaml | kubectl apply -f -
+
+      - name: Apply XRD and Composition
+        run: |
+          kubectl apply -f composition/xrd.yaml
+          kubectl apply -f composition/composition.yaml
+
+      - name: Apply Claim
+        run: |
+          sed -e "s/PROJECT_ID/${{ github.event.inputs.project_id }}/g" \
+            -e "s/REGION/${{ github.event.inputs.region }}/g" \
+            -e "s/CLAIM_NAME/${{ github.event.inputs.claim_name }}/g" \
+            -e "s/CLAIM_NAMESPACE/${{ github.event.inputs.claim_namespace }}/g" \
+            composition/claim.yaml | kubectl apply -f -
+
+      - name: Wait for Pub/Sub Ready
+        run: |
+          kubectl wait --for=condition=Ready \
+            pubsubtopicclaims.pubsub.gcp.example.org/${{ github.event.inputs.claim_name }} \
+            --namespace ${{ github.event.inputs.claim_namespace }} --timeout=300s
+
+      - name: Show Pub/Sub Details
+        run: |
+          kubectl get pubsubtopicclaims.pubsub.gcp.example.org \
+            ${{ github.event.inputs.claim_name }} \
+            --namespace ${{ github.event.inputs.claim_namespace }} \
+            -o jsonpath='Topic: {.status.topicId} / {.status.topicName}{"\n"}'
+          kubectl get pubsubtopicclaims.pubsub.gcp.example.org \
+            ${{ github.event.inputs.claim_name }} \
+            --namespace ${{ github.event.inputs.claim_namespace }} \
+            -o jsonpath='Subscription: {.status.subscriptionId} / {.status.subscriptionName}{"\n"}'

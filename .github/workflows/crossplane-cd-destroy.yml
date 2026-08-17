@@ -1,0 +1,64 @@
+---
+name: CD - GCP Pub/Sub (Destroy)
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      claim_name:
+        description: "Claim name to destroy (topic and subscription will be deleted)"
+        required: true
+        type: string
+
+      claim_namespace:
+        description: Namespace of the claim
+        required: true
+        type: string
+        default: default
+
+      remove_provider:
+        description: "Also uninstall the Crossplane provider (true/false)"
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  destroy:
+    name: Crossplane Destroy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 --decode > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Delete Claim
+        run: |
+          kubectl delete pubsubtopicclaims.pubsub.gcp.example.org \
+            ${{ github.event.inputs.claim_name }} \
+            --namespace ${{ github.event.inputs.claim_namespace }} \
+            --wait=true --timeout=300s
+
+      - name: Uninstall Provider (optional)
+        if: github.event.inputs.remove_provider == 'true'
+        run: |
+          kubectl delete -f provider/provider.yaml
+          kubectl delete providerconfig gcp-provider-config --ignore-not-found
+          kubectl delete secret gcp-creds --namespace crossplane-system --ignore-not-found
+
+      - name: Verify Pub/Sub Removed
+        run: |
+          if kubectl get pubsubtopicclaims.pubsub.gcp.example.org \
+            ${{ github.event.inputs.claim_name }} \
+            --namespace ${{ github.event.inputs.claim_namespace }} >/dev/null 2>&1; then
+            echo "Claim still exists!"; exit 1
+          else
+            echo "Claim and Pub/Sub resources successfully deleted."
+          fi
