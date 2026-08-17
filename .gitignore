@@ -1,0 +1,17 @@
+.secrets
+.secrets.*
+!.secrets.example
+
+# Local kubeconfig used for development
+kubeconfig
+*.kubeconfig
+
+# Logs
+*.log
+
+# Crossplane CLI cache
+.xpkg
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
